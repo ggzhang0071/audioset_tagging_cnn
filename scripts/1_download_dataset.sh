@@ -4,11 +4,13 @@ DATASET_DIR=${1:-"./datasets/audioset201906"}   # Default argument.
 echo "------ Download metadata ------"
 mkdir -p $DATASET_DIR"/metadata"
 
+if [ ! -e $DATASET_DIR"/metadata/eval_segments.csv" ]
+then
 # Download ideo list csv.
 wget -O $DATASET_DIR"/metadata/eval_segments.csv" "http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/eval_segments.csv"
 wget -O $DATASET_DIR"/metadata/balanced_train_segments.csv" "http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/balanced_train_segments.csv"
 wget -O $DATASET_DIR"/metadata/unbalanced_train_segments.csv" "http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/unbalanced_train_segments.csv"
-
+fi  
 # Download class labels indices.
 wget -O $DATASET_DIR"/metadata/class_labels_indices.csv" "http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/class_labels_indices.csv"
 
@@ -26,7 +28,7 @@ python3 utils/dataset.py split_unbalanced_csv_to_partial_csvs \
 
 echo "------ Download wavs ------"
 # Download evaluation wavs
-python3 utils/dataset.py download_wavs \
+python3  utils/dataset.py download_wavs \
     --csv_path=$DATASET_DIR"/metadata/eval_segments.csv" \
     --audios_dir=$DATASET_DIR"/audios/eval_segments"
 
@@ -40,7 +42,7 @@ python3 utils/dataset.py download_wavs \
 # one command in one terminal.
 for IDX in {00..40}; do
   echo $IDX
-  python utils/dataset.py download_wavs \
+  python  -m pdb utils/dataset.py download_wavs \
     --csv_path=$DATASET_DIR"/metadata/unbalanced_partial_csvs/unbalanced_train_segments_part$IDX.csv" \
     --audios_dir=$DATASET_DIR"/audios/unbalanced_train_segments/unbalanced_train_segments_part$IDX"
 done
