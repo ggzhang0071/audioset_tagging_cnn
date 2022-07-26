@@ -11,10 +11,11 @@ if [ -e CHECKPOINT_PATH ]; then
     # Download audio tagging checkpoint.
    wget -O $CHECKPOINT_PATH "https://zenodo.org/record/3987831/files/Cnn14_mAP%3D0.431.pth?download=1"
 else
-    echo "The file is existed"
+    echo "The model file $CHECKPOINT_PATH is existed"
 fi  
 # Inference.
-python3 pytorch/inference.py audio_tagging \
+
+python3  pytorch/inference.py audio_tagging \
     --model_type=$MODEL_TYPE \
     --checkpoint_path=$CHECKPOINT_PATH \
     --audio_path=$test_wav \
@@ -29,13 +30,13 @@ if [ -e CHECKPOINT_PATH ]; then
     wget -O $CHECKPOINT_PATH "https://zenodo.org/record/3987831/files/Cnn14_DecisionLevelMax_mAP%3D0.385.pth?download=1"
 
 else
-    echo "The file is existed"
+    echo "The model file $CHECKPOINT_PATH is existed"
 fi
 
 # Download sound event detection checkpoint.
 
 # Inference.
-python3 pytorch/inference.py sound_event_detection \
+python3 -m pdb  pytorch/inference.py sound_event_detection \
     --model_type=$MODEL_TYPE \
     --checkpoint_path=$CHECKPOINT_PATH \
     --audio_path=$test_wav\

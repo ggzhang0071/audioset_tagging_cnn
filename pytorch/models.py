@@ -221,7 +221,7 @@ class Cnn14(nn.Module):
         x = F.relu_(self.fc1(x))
         embedding = F.dropout(x, p=0.5, training=self.training)
         clipwise_output = torch.sigmoid(self.fc_audioset(x))
-        
+        # why output and embeding here？
         output_dict = {'clipwise_output': clipwise_output, 'embedding': embedding}
 
         return output_dict
@@ -3094,10 +3094,13 @@ class Cnn14_DecisionLevelMax(nn.Module):
         x2 = F.avg_pool1d(x, kernel_size=3, stride=1, padding=1)
         x = x1 + x2
         x = F.dropout(x, p=0.5, training=self.training)
+
         x = x.transpose(1, 2)
         x = F.relu_(self.fc1(x))
         x = F.dropout(x, p=0.5, training=self.training)
         segmentwise_output = torch.sigmoid(self.fc_audioset(x))
+
+        # what is this used for?
         (clipwise_output, _) = torch.max(segmentwise_output, dim=1)
 
         # Get framewise output
@@ -3201,9 +3204,9 @@ class Cnn14_DecisionLevelAvg(nn.Module):
         segmentwise_output = torch.sigmoid(self.fc_audioset(x))
         clipwise_output = torch.mean(segmentwise_output, dim=1)
 
-        # Get framewise output
+        """# Get framewise output
         framewise_output = interpolate(segmentwise_output, self.interpolate_ratio)
-        framewise_output = pad_framewise_output(framewise_output, frames_num)
+        framewise_output = pad_framewise_output(framewise_output, frames_num)"""
 
         # Get framewise output
         framewise_output = interpolate(segmentwise_output, self.interpolate_ratio)

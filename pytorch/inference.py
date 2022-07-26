@@ -81,10 +81,10 @@ def audio_tagging(args):
 def sound_event_detection(args):
     """Inference sound event detection result of an audio clip.
     """
-
     # Arugments & parameters
     sample_rate = args.sample_rate
     window_size = args.window_size
+    # how to choose hop_size?
     hop_size = args.hop_size
     mel_bins = args.mel_bins
     fmin = args.fmin
@@ -101,6 +101,7 @@ def sound_event_detection(args):
     # Paths
     fig_path = os.path.join('results', '{}.png'.format(get_filename(audio_path)))
     create_folder(os.path.dirname(fig_path))
+
 
     # Model
     Model = eval(model_type)
@@ -131,6 +132,7 @@ def sound_event_detection(args):
 
     framewise_output = batch_output_dict['framewise_output'].data.cpu().numpy()[0]
     """(time_steps, classes_num)"""
+    # what is this ?
 
     print('Sound event detection result (time_steps x classes_num): {}'.format(
         framewise_output.shape))
@@ -142,6 +144,7 @@ def sound_event_detection(args):
     """(time_steps, top_k)"""
 
     # Plot result    
+    # what is this used for ?
     stft = librosa.core.stft(y=waveform[0].data.cpu().numpy(), n_fft=window_size, 
         hop_length=hop_size, window='hann', center=True)
     frames_num = stft.shape[-1]
@@ -150,14 +153,18 @@ def sound_event_detection(args):
     axs[0].matshow(np.log(np.abs(stft)), origin='lower', aspect='auto', cmap='jet')
     axs[0].set_ylabel('Frequency bins')
     axs[0].set_title('Log spectrogram')
+
+    #how to set the threshold for 
     axs[1].matshow(top_result_mat.T, origin='upper', aspect='auto', cmap='jet', vmin=0, vmax=1)
     axs[1].xaxis.set_ticks(np.arange(0, frames_num, frames_per_second))
     axs[1].xaxis.set_ticklabels(np.arange(0, frames_num / frames_per_second))
+
     axs[1].yaxis.set_ticks(np.arange(0, top_k))
     axs[1].yaxis.set_ticklabels(np.array(labels)[sorted_indexes[0 : top_k]])
     axs[1].yaxis.grid(color='k', linestyle='solid', linewidth=0.3, alpha=0.3)
     axs[1].set_xlabel('Seconds')
     axs[1].xaxis.set_ticks_position('bottom')
+
 
     plt.tight_layout()
     plt.savefig(fig_path)
@@ -173,7 +180,7 @@ if __name__ == '__main__':
 
     parser_at = subparsers.add_parser('audio_tagging')
     parser_at.add_argument('--sample_rate', type=int, default=32000)
-    parser_at.add_argument('--window_size', type=int, default=1024)
+    parser_at.add_argument('--', type=int, default=1024)
     parser_at.add_argument('--hop_size', type=int, default=320)
     parser_at.add_argument('--mel_bins', type=int, default=64)
     parser_at.add_argument('--fmin', type=int, default=50)
