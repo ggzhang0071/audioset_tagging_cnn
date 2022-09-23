@@ -22,8 +22,9 @@ from models import (Cnn14, Cnn14_no_specaug, Cnn14_no_dropout,
     Cnn14_mixup_time_domain, Cnn14_DecisionLevelMax, Cnn14_DecisionLevelAtt)
 from pytorch_utils import (move_data_to_device, count_parameters, count_flops, 
     do_mixup)
-from data_generator import (AudioSetDataset, TrainSampler, BalancedTrainSampler, 
-    AlternateTrainSampler, EvaluateSampler, collate_fn)
+#from data_generator import (AudioSetDataset, TrainSampler, BalancedTrainSampler, AlternateTrainSampler, EvaluateSampler, collate_fn)
+from  data_generator import collate_fn
+from dataset_tmp import AudiosetDataset
 from evaluate import Evaluator
 import config
 from losses import get_loss_func
@@ -135,9 +136,17 @@ def train(args):
     
     # Dataset will be used by DataLoader later. Dataset takes a meta as input 
     # and return a waveform and a target.
-    dataset = AudioSetDataset(sample_rate=sample_rate)
+    norm_stats = {'audioset':[-4.2677393, 4.5689974], 'esc50':[-6.6268077, 5.358466]}
+    target_length = {'audioset':1024, 'esc50':512}
+    test_audio_conf={'num_mel_bins': 128, 'target_length': target_length["audioset"], 'freqm': 0, \
+         'timem': 0, 'mixup': 0, 'dataset': "audioset", 'mode':'train', 'mean':norm_stats["audioset"][0], \
+             'std':norm_stats["audioset"][1], 'noise':False}
+    train_json_path='/git/datasets/from_audioset/datafiles/part_audioset_train_data_1.json'
+    train_dataset=AudiosetDataset(train_json_path,types=config.classification_types,audio_conf=test_audio_conf)
+    val_json_path='/git/datasets/from_audioset/datafiles/part_audioset_train_data_1.json'
+    val_dataset=AudiosetDataset(val_json_path,types=config.classification_types,audio_conf=test_audio_conf)
 
-    # Train sampler
+    """# Train sampler
     if balanced == 'none':
         Sampler = TrainSampler
     elif balanced == 'balanced':
@@ -155,23 +164,19 @@ def train(args):
         indexes_hdf5_path=eval_bal_indexes_hdf5_path, batch_size=batch_size)
 
     eval_test_sampler = EvaluateSampler(
-        indexes_hdf5_path=eval_test_indexes_hdf5_path, batch_size=batch_size)
+        indexes_hdf5_path=eval_test_indexes_hdf5_path, batch_size=batch_size)"""
 
     # Data loader
-    train_loader = torch.utils.data.DataLoader(dataset=dataset, 
-        batch_sampler=train_sampler, collate_fn=collate_fn, 
+    train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
         num_workers=num_workers, pin_memory=True)
     
-    eval_bal_loader = torch.utils.data.DataLoader(dataset=dataset, 
-        batch_sampler=eval_bal_sampler, collate_fn=collate_fn, 
+    eval_bal_loader = torch.utils.data.DataLoader(dataset=val_dataset,  num_workers=num_workers, pin_memory=True)
+
+    eval_test_loader = torch.utils.data.DataLoader(dataset=val_dataset,
         num_workers=num_workers, pin_memory=True)
 
-    eval_test_loader = torch.utils.data.DataLoader(dataset=dataset, 
-        batch_sampler=eval_test_sampler, collate_fn=collate_fn, 
-        num_workers=num_workers, pin_memory=True)
-
-    if 'mixup' in augmentation:
-        mixup_augmenter = Mixup(mixup_alpha=1.)
+    """if 'mixup' in augmentation:
+        mixup_augmenter = Mixup(mixup_alpha=1.)"""
 
     # Evaluator
     evaluator = Evaluator(model=model)
@@ -226,7 +231,7 @@ def train(args):
         if (iteration % 2000 == 0 and iteration > resume_iteration) or (iteration == 0):
             train_fin_time = time.time()
 
-            bal_statistics = evaluator.evaluate(eval_bal_loader)
+            """bal_statistics = evaluator.evaluate(eval_bal_loader)
             test_statistics = evaluator.evaluate(eval_test_loader)
                             
             logging.info('Validate bal mAP: {:.3f}'.format(
@@ -237,7 +242,7 @@ def train(args):
 
             statistics_container.append(iteration, bal_statistics, data_type='bal')
             statistics_container.append(iteration, test_statistics, data_type='test')
-            statistics_container.dump()
+            statistics_container.dump()"""
 
             train_time = train_fin_time - train_bgn_time
             validate_time = time.time() - train_fin_time
@@ -255,7 +260,8 @@ def train(args):
             checkpoint = {
                 'iteration': iteration, 
                 'model': model.module.state_dict(), 
-                'sampler': train_sampler.state_dict()}
+                #'sampler': train_sampler.state_dict()
+                }
 
             checkpoint_path = os.path.join(
                 checkpoints_dir, '{}_iterations.pth'.format(iteration))
@@ -264,13 +270,13 @@ def train(args):
             logging.info('Model saved to {}'.format(checkpoint_path))
         
         # Mixup lambda
-        if 'mixup' in augmentation:
+        """if 'mixup' in augmentation:
             batch_data_dict['mixup_lambda'] = mixup_augmenter.get_lambda(
-                batch_size=len(batch_data_dict['waveform']))
+                batch_size=len(batch_data_dict['waveform']))"""
 
         # Move data to device
-        for key in batch_data_dict.keys():
-            batch_data_dict[key] = move_data_to_device(batch_data_dict[key], device)
+        """for key in batch_data_dict.keys():
+            batch_data_dict[key] = move_data_to_device(batch_data_dict[key], device)"""
         
         # Forward
         model.train()
@@ -341,6 +347,5 @@ if __name__ == '__main__':
 
     if args.mode == 'train':
         train(args)
-
     else:
         raise Exception('Error argument!')

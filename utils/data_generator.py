@@ -75,7 +75,6 @@ class AudioSetDataset(object):
 class Base(object):
     def __init__(self, indexes_hdf5_path, batch_size, black_list_csv, random_seed):
         """Base class of train sampler.
-        
         Args:
           indexes_hdf5_path: string
           batch_size: int
@@ -414,9 +413,22 @@ def collate_fn(list_data_dict):
       np_data_dict, dict, e.g.,
           {'audio_name': (batch_size,), 'waveform': (batch_size, clip_samples), ...}
     """
-    np_data_dict = {}
+    np_data_dict ={}
     
     for key in list_data_dict[0].keys():
         np_data_dict[key] = np.array([data_dict[key] for data_dict in list_data_dict])
     
     return np_data_dict
+
+if __name__=="__main__":
+    norm_stats = {'audioset':[-4.2677393, 4.5689974], 'esc50':[-6.6268077, 5.358466]}
+    target_length = {'audioset':1024, 'esc50':512}
+    test_audio_conf={'num_mel_bins': 128, 'target_length': target_length["audioset"], 'freqm': 0, \
+         'timem': 0, 'mixup': 0, 'dataset': "audioset", 'mode':'train', 'mean':norm_stats["audioset"][0], \
+             'std':norm_stats["audioset"][1], 'noise':False}
+    train_json_path='/git/datasets/from_audioset/datafiles/part_audioset_train_data_1.json'
+    train_dataset=AudiosetDataset(train_json_path,types=config.classification_types,audio_conf=test_audio_conf)
+    for i in  train_dataset:
+        print(i)
+
+

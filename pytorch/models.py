@@ -169,8 +169,8 @@ class Cnn14(nn.Module):
         self.conv_block2 = ConvBlock(in_channels=64, out_channels=128)
         self.conv_block3 = ConvBlock(in_channels=128, out_channels=256)
         self.conv_block4 = ConvBlock(in_channels=256, out_channels=512)
-        self.conv_block5 = ConvBlock(in_channels=512, out_channels=1024)
-        self.conv_block6 = ConvBlock(in_channels=1024, out_channels=2048)
+        #self.conv_block5 = ConvBlock(in_channels=512, out_channels=1024)
+        #self.conv_block6 = ConvBlock(in_channels=1024, out_channels=2048)
 
         self.fc1 = nn.Linear(2048, 2048, bias=True)
         self.fc_audioset = nn.Linear(2048, classes_num, bias=True)
@@ -193,8 +193,8 @@ class Cnn14(nn.Module):
         x = self.bn0(x)
         x = x.transpose(1, 3)
         
-        if self.training:
-            x = self.spec_augmenter(x)
+        """if self.training:
+            x = self.spec_augmenter(x)"""
 
         # Mixup on spectrogram
         if self.training and mixup_lambda is not None:
@@ -3317,3 +3317,17 @@ class Cnn14_DecisionLevelAtt(nn.Module):
             'clipwise_output': clipwise_output}
 
         return output_dict
+
+if  __name__=="__main__":
+    model_type="Cnn14"
+    Model=eval(model_type)
+    model=Model(sample_rate=22050,window_size=2048,hop_size=1024,mel_bins=64,fmin=50,fmax=14000,classes_num=2)
+    x=torch.ones(1,22050) +torch.randn(1,22050)
+    output=model(x)
+    print(output.shape)
+
+
+    
+    
+
+    

@@ -3,6 +3,8 @@ import csv
 
 sample_rate = 32000
 clip_samples = sample_rate * 10     # Audio clips are 10-second
+classification_types=["Baby", "Child", "Female", "Male"]
+
 
 # Load label
 with open('metadata/class_labels_indices.csv', 'r') as f:
