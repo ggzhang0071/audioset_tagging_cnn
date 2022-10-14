@@ -6,5 +6,7 @@ torchlibrosa==0.0.4
 h5py
 
 
-# also need install youtube-dl
-# apt install 
+
+# also need install libsndfile
+# apt update
+apt -y install libsndfile1

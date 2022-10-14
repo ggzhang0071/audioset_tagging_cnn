@@ -8,37 +8,9 @@ import   config
 import logging
 import math
 import copy 
+import argparse
 
-def collect_data_from_ef(test_wav_dir,original_json_path,save_json_path):
-    data_info=pd.read_csv(original_json_path,sep="\t")
-    label_map = {"male": 0, "female": 1, "baby": 2, "child": 3}
 
-    choosed_wav_info=[]
-    for idx, row in data_info.iterrows():
-        if ("male" in row[1]) or ("female"  in row[1]) or ("baby" in row[1]) or ("child" in row[1]):
-            # check the wav file 
-            wav_file=os.path.join(test_wav_dir,row[0])
-            try:
-                waveform, sample_rate=librosa.load(wav_file, sr=16000)
-            except:
-                #print("{} error".format(wav_file))
-                continue
-            else:
-                time = librosa.get_duration(filename=wav_file)
-                if(time>0):
-                    type1=row[1].split("_")[0]
-                    assert type1 in ["male", "female", "baby", "child"]
-                    choosed_wav_info.append([wav_file,type1,label_map[type1]])
-                
-
-    # save the choosed files
-    choosed_wav_info=pd.DataFrame(choosed_wav_info)
-    print(len(choosed_wav_info[choosed_wav_info[2]==0].index.tolist()))
-    print(len(choosed_wav_info[choosed_wav_info[2]==1].index.tolist()))
-    print(len(choosed_wav_info[choosed_wav_info[2]==2].index.tolist()))
-    print(len(choosed_wav_info[choosed_wav_info[2]==3].index.tolist()))
-    choosed_wav_info.to_csv(save_json_path,sep="\n",index=False,header=False)
-    
 def make_new_class_label_indices(choosed_types,save_json):
     # save new class label indices to csv file
     df=pd.DataFrame(columns=["index","mid","display_name"])
@@ -129,6 +101,34 @@ def collect_data_from_audioset(csv_dir,choosed_types,save_test_json,multi_label)
         json.dump({"data":wav_label_list}, f,indent=4)
         print("Finish the part audioset dataset preparation")
 
+def collect_data_from_ef(test_wav_dir,original_json_path,save_json_path,max_label_num):
+    data_info=pd.read_csv(original_json_path,sep="\t")
+    label_map = {"male": 0, "female": 1, "baby": 2, "child": 3}
+    choosed_wav_info=[]
+    label_counter={"male": 0, "female": 0, "baby": 0, "child": 0}
+    for idx, row in data_info.iterrows():
+        if ("male" in row[1]) or ("female"  in row[1]) or ("baby" in row[1]) or ("child" in row[1]):
+            # check the wav file 
+            wav_file=os.path.join(test_wav_dir,row[0])
+            try:
+                waveform, sample_rate=librosa.load(wav_file, sr=16000)
+            except:
+                #print("{} error".format(wav_file))
+                continue
+            else:
+                time = librosa.get_duration(filename=wav_file)
+                if(time>0):
+                    type1=row[1].split("_")[0]
+                    assert type1 in ["male", "female", "baby", "child"]
+                    if label_counter[type1]<max_label_num:
+                        print("label_counter", label_counter)
+                        choosed_wav_info.append({"wav":wav_file,"labels":label_map[type1],"display_name":type1})
+                        label_counter[type1]+=1
+    # save the choosed files
+    with open(save_test_json, 'w') as f:
+        json.dump({"data":choosed_wav_info}, f,indent=4)
+    print("Finish the test ef audio dataset preparation")
+
 def merge_json(json_folder,first_json,second_json):
     # merge the json file
     with open(os.path.join(json_folder,first_json), 'r') as f:
@@ -153,7 +153,6 @@ def collect_data_from_esc50(dataset_json_folder,choosed_types,save_dir,save_val_
         for wav_label in data:
             if wav_label["labels"] in choosed_types.values():
                 new_wav_label_list.append(wav_label)
-
     # save the new wav-label pair     
 
     with open(os.path.join(save_dir,save_val_json), 'w') as f:
@@ -199,10 +198,9 @@ def split_data(save_dir,save_test_json,k_fold, split_ratio,dataset,mode="train")
     print("Finish the part {} preparation".format(dataset))
 
 if __name__=="__main__":
-    import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='audioset', help='train and dataset name')
-    parser.add_argument('--test_dataset', type=str, default='', help='test dataset name')
+    parser.add_argument('--test_dataset', type=str, default='ef_audio', help='test dataset name')
     parser.add_argument('--merged',action='store_false',help='merged types or not')
     parser.add_argument('--class_labels_indices',type=str,default="/git/audioset_tagging_cnn/metadata/class_labels_indices.csv")
     parser.add_argument("--k_fold", type=int, default=1, help="the k fold for cross validation")
@@ -289,8 +287,9 @@ if __name__=="__main__":
     elif test_dataset=="ef_audio":
         test_wav_dir="/git/datasets/audio_ef_wav/shujutang_wav12"
         original_json_path="/git/datasets/audio_ef_wav/shujutang_wav12_list_txt"
-        save_test_json="/git/datasets/audio_ef_wav/chooosed_human_sounds.csv"
-        collect_data_from_ef(test_wav_dir,original_json_path,save_test_json)
+        save_test_json="/git/datasets/audio_ef_wav/chooosed_human_sounds.json"
+        collect_data_from_ef(test_wav_dir,original_json_path,save_test_json)  
+
         #compute_mean_std(args.test_wav_dir)
         if args.test_split:
             split_data(save_dir,save_test_json,k_fold,split_ratio,test_dataset)

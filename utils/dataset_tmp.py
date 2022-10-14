@@ -4,31 +4,34 @@
 import json,csv
 from random import random
 import torch
-import torchaudio   
 import librosa
 from torch.utils.data import Dataset
 import numpy as np
 import config
 
-def make_index_dict(label_csv):
-    index_lookup = {}
-    with open(label_csv, 'r') as f:
-        csv_reader = csv.DictReader(f)
-        line_count = 0
-        for row in csv_reader:
-            index_lookup[row['mid']] = row['index']
-            line_count += 1
-    return index_lookup
 
-def make_name_dict(label_csv):
-    name_lookup = {}
-    with open(label_csv, 'r') as f:
-        csv_reader = csv.DictReader(f)
-        line_count = 0
-        for row in csv_reader:
-            name_lookup[row['index']] = row['display_name']
-            line_count += 1
-    return name_lookup
+def collate_fn(list_data_dict):
+    """Collate data.
+    Args:
+      list_data_dict, e.g., [{'audio_name': str, 'waveform': (clip_samples,), ...}, 
+                             {'audio_name': str, 'waveform': (clip_samples,), ...},
+                             ...]
+    Returns:
+      np_data_dict, dict, e.g.,
+          {'audio_name': (batch_size,), 'waveform': (batch_size, clip_samples), ...}
+    """
+    np_data_dict ={}
+
+    if not list_data_dict==[None]:    
+        for key in list_data_dict[0].keys():
+            tmp=np.array([data_dict[key] for data_dict in list_data_dict])
+            if key!='audio_name':
+                np_data_dict[key] = torch.from_numpy(tmp)
+            else:
+                np_data_dict[key] = tmp
+        return np_data_dict
+
+
 
 class AudiosetDataset(Dataset):
     def __init__(self, dataset_json_file,label_num):
@@ -41,24 +44,21 @@ class AudiosetDataset(Dataset):
         self.label_num=label_num
         with open(dataset_json_file, 'r') as fp:
             data_json = json.load(fp)
-
         self.data = data_json['data']
         
     
     def __getitem__(self, index):
         """
-        :param index: index of the audio file
-        :return: audio file, label, and index
+        param index: index of the audio file
+        return: audio file, label, and index
         """
         # what is there means?
         datum = self.data[index]
         try:
             waveform, sample_rate=librosa.load(datum['wav'], sr=16000)
         except:
-            print(datum['wav'])
-            print("error")
+            print("{} error".format(datum['wav']))
         else:
-            waveform =waveform - waveform.mean()
             #padding the waveform to 16000
             if waveform.shape[0] < 16000:
                 waveform1 = np.pad(waveform, (0, 16000 - waveform.shape[0]), 'constant')
@@ -67,23 +67,30 @@ class AudiosetDataset(Dataset):
             # one-hot encoded label
             label_indices=np.zeros(self.label_num)
             label_indices[datum['labels']]=1
-            label_indices=torch.FloatTensor(label_indices)
+            float_label=label_indices.astype(np.float32)
+            #label_indices=torch.FloatTensor(label_indices)
             if waveform1.shape[0] != 16000:
                 print(waveform1.shape,"error")
-            output_dict={"audio_name":datum['wav'],"waveform":waveform1, "target":datum['labels']}
-            return waveform1
+            output_dict={"audio_name":datum['wav'],"waveform":waveform1, "target":float_label, "mixup_lambda":0}
+            return output_dict
             
     def __len__(self):
         return len(self.data)
 
 if __name__=="__main__":
-    json_path='/git/datasets/from_audioset/datafiles/part_audioset_eval_data_1.json'
+    json_path='/git/datasets/from_audioset/datafiles/part_audioset_train_data_1.json'
+    label_num=4 
+    """train_json_path='/git/datasets/from_audioset/datafiles/part_audioset_train_data_1.json'
+    train_dataset=AudiosetDataset(train_json_path,label_num)
+    val_json_path='/git/datasets/from_audioset/datafiles/part_audioset_eval_data_1.json'"""
+
+    val_dataset=AudiosetDataset(json_path,label_num)
     #label_csv='/git/datasets/from_audioset/datafiles/part_audioset_class_labels_indices.csv'
     label_num=4
     dataset=AudiosetDataset(json_path,label_num)
-    for data_dict in dataset:
+    eval_bal_loader = torch.utils.data.DataLoader(dataset=dataset,collate_fn=collate_fn)
+    for i, data_dict in enumerate(eval_bal_loader):
         pass 
-
 
 
 

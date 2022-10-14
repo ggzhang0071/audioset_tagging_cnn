@@ -4,10 +4,11 @@ import csv
 sample_rate = 32000
 clip_samples = sample_rate * 10     # Audio clips are 10-second
 classification_types=["Baby", "Child", "Female", "Male"]
+#classification_types=["Man","Woman","Child","Baby"]
 
 
 # Load label
-with open('metadata/class_labels_indices.csv', 'r') as f:
+with open('/git/audioset_tagging_cnn/datasets/audioset201906/metadata/class_labels_indices.csv', 'r') as f:
     reader = csv.reader(f, delimiter=',')
     lines = list(reader)
 
@@ -20,6 +21,7 @@ for i1 in range(1, len(lines)):
     labels.append(label)
 
 classes_num = len(labels)
+classes_num=4
 
 lb_to_ix = {label : i for i, label in enumerate(labels)}
 ix_to_lb = {i : label for i, label in enumerate(labels)}
