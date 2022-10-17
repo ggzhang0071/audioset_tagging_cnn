@@ -103,7 +103,7 @@ def collect_data_from_audioset(csv_dir,choosed_types,save_test_json,multi_label)
 
 def collect_data_from_ef(test_wav_dir,original_json_path,save_json_path,max_label_num):
     data_info=pd.read_csv(original_json_path,sep="\t")
-    label_map = {"male": 0, "female": 1, "baby": 2, "child": 3}
+    label_map = {"male": 0, "female": 1, "child": 2,"baby": 3}
     choosed_wav_info=[]
     label_counter={"male": 0, "female": 0, "baby": 0, "child": 0}
     for idx, row in data_info.iterrows():
@@ -122,12 +122,13 @@ def collect_data_from_ef(test_wav_dir,original_json_path,save_json_path,max_labe
                     assert type1 in ["male", "female", "baby", "child"]
                     if label_counter[type1]<max_label_num:
                         print("label_counter", label_counter)
-                        choosed_wav_info.append({"wav":wav_file,"labels":label_map[type1],"display_name":type1})
+                        choosed_wav_info.append({"wav":wav_file,"labels":label_map[type1],"display_name":type1.capitalize()})
                         label_counter[type1]+=1
     # save the choosed files
     with open(save_test_json, 'w') as f:
         json.dump({"data":choosed_wav_info}, f,indent=4)
     print("Finish the test ef audio dataset preparation")
+
 
 def merge_json(json_folder,first_json,second_json):
     # merge the json file
@@ -288,8 +289,7 @@ if __name__=="__main__":
         test_wav_dir="/git/datasets/audio_ef_wav/shujutang_wav12"
         original_json_path="/git/datasets/audio_ef_wav/shujutang_wav12_list_txt"
         save_test_json="/git/datasets/audio_ef_wav/chooosed_human_sounds.json"
-        collect_data_from_ef(test_wav_dir,original_json_path,save_test_json)  
-
+        max_label_num=4
         #compute_mean_std(args.test_wav_dir)
         if args.test_split:
             split_data(save_dir,save_test_json,k_fold,split_ratio,test_dataset)
