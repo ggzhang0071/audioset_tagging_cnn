@@ -7,7 +7,7 @@ import torch
 import librosa
 from torch.utils.data import Dataset
 import numpy as np
-import config
+import random
 
 
 def collate_fn(list_data_dict):
@@ -62,15 +62,13 @@ class AudiosetDataset(Dataset):
             #padding the waveform to 16000
             if waveform.shape[0] < 16000:
                 waveform1 = np.pad(waveform, (0, 16000 - waveform.shape[0]), 'constant')
-            elif waveform.shape[0] > 16000:
+            elif waveform.shape[0] >= 16000:
                 waveform1 = waveform[:16000]
             # one-hot encoded label
             label_indices=np.zeros(self.label_num)
             label_indices[datum['labels']]=1
             float_label=label_indices.astype(np.float32)
             #label_indices=torch.FloatTensor(label_indices)
-            if waveform1.shape[0] != 16000:
-                print(waveform1.shape,"error")
             output_dict={"audio_name":datum['wav'],"waveform":waveform1, "target":float_label, "mixup_lambda":0}
             return output_dict
             
@@ -78,19 +76,28 @@ class AudiosetDataset(Dataset):
         return len(self.data)
 
 if __name__=="__main__":
-    json_path='/git/datasets/from_audioset/datafiles/part_audioset_train_data_1.json'
+    json_path='/git/datasets/from_audioset/datafiles_ok/part_audioset_train_data_1.json'
     label_num=4 
-    """train_json_path='/git/datasets/from_audioset/datafiles/part_audioset_train_data_1.json'
+    """train_json_path='/git/datasets/from_audioset/datafiles_ok/part_audioset_train_data_1.json'
     train_dataset=AudiosetDataset(train_json_path,label_num)
-    val_json_path='/git/datasets/from_audioset/datafiles/part_audioset_eval_data_1.json'"""
+    json_path='/git/datasets/from_audioset/datafiles_ok/part_audioset_eval_data_1.json'"""
+
+    json_path='/git/datasets/from_audioset/datafiles_ok/chooosed_human_sounds.csv'
+
+
 
     val_dataset=AudiosetDataset(json_path,label_num)
-    #label_csv='/git/datasets/from_audioset/datafiles/part_audioset_class_labels_indices.csv'
+    n_train = len(val_dataset)
+    indices = random.sample(list(range(n_train)),100)
+    train_sampler = torch.utils.data.sampler.SubsetRandomSampler(indices)
+    #label_csv='/git/datasets/from_audioset/datafile_ok/part_audioset_class_labels_indices.csv'
     label_num=4
     dataset=AudiosetDataset(json_path,label_num)
-    eval_bal_loader = torch.utils.data.DataLoader(dataset=dataset,collate_fn=collate_fn)
+    eval_bal_loader = torch.utils.data.DataLoader(dataset=dataset,collate_fn=collate_fn, sampler=train_sampler)
+
+
     for i, data_dict in enumerate(eval_bal_loader):
-        pass 
+        print(i)
 
 
 

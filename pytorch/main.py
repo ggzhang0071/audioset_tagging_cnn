@@ -1,20 +1,19 @@
-import os
+import os,random
 import sys
-sys.path.insert(1, os.path.join(sys.path[0], '../utils'))
 import numpy as np
 import argparse
 import time
 import logging
 from tqdm import tqdm
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn as nn  
+import torch.nn.functional as F  
 import torch.optim as optim
 import torch.utils.data
-
+#from  torch.cuda.amp import autocast, GradScaler
 from tensorboardX import SummaryWriter
 writer=SummaryWriter()
- 
+sys.path.insert(1, os.path.join(sys.path[0], '../utils'))
 from utilities import (create_folder, get_filename, create_logging, Mixup, 
     StatisticsContainer)
 from models import (Cnn14, Cnn14_no_specaug, Cnn14_no_dropout, 
@@ -27,7 +26,8 @@ from pytorch_utils import (move_data_to_device, count_parameters, count_flops,
     do_mixup)
 #from data_generator import (AudioSetDataset, TrainSampler, BalancedTrainSampler, AlternateTrainSampler, EvaluateSampler, collate_fn)
 #from  data_generator import collate_fn
-from dataset_tmp import AudiosetDataset, collate_fn
+sys.path.append("/git/audioset_tagging_cnn")
+from utils import AudiosetDataset, collate_fn
 from evaluate import Evaluator
 import config
 from losses import get_loss_func
@@ -53,7 +53,6 @@ def train(args):
       accumulation_steps: int
       cuda: bool
     """
-
     # Arugments & parameters
     workspace = args.workspace
     data_type = args.data_type
@@ -68,14 +67,13 @@ def train(args):
     balanced = args.balanced
     augmentation = args.augmentation
     batch_size = args.batch_size
+    num_workers = args.num_workers
     learning_rate = args.learning_rate
     resume_iteration = args.resume_iteration
     early_stop = args.early_stop
     device = torch.device('cuda') if args.cuda and torch.cuda.is_available() else torch.device('cpu')
     filename = args.filename
     label_num=args.label_num
-
-    num_workers = 8
     clip_samples = config.clip_samples
     classes_num = config.classes_num
     loss_func = get_loss_func(loss_type)
@@ -117,7 +115,7 @@ def train(args):
         'augmentation={}'.format(augmentation), 'batch_size={}'.format(batch_size))
 
     create_logging(logs_dir, filemode='w')
-    logging.info(args)
+    #logging.info(args)
     
     if 'cuda' in str(device):
         logging.info('Using GPU.')
@@ -139,11 +137,11 @@ def train(args):
     
     # Dataset will be used by DataLoader later. Dataset takes a meta as input 
     # and return a waveform and a target.
-    train_json_path='/git/datasets/from_audioset/datafiles/part_audioset_train_data_1.json'
+    train_json_path='/git/datasets/from_audioset/datafiles_ok/part_audioset_train_data_1.json'
     train_dataset=AudiosetDataset(train_json_path,label_num)
-    val_json_path='/git/datasets/from_audioset/datafiles/part_audioset_eval_data_1.json'
+    val_json_path='/git/datasets/from_audioset/datafiles_ok/part_audioset_eval_data_1.json'
     val_dataset=AudiosetDataset(val_json_path,label_num)
-    test_json_path="/git/datasets/audio_ef_wav/chooosed_human_sounds.csv"
+    test_json_path="/git/datasets/from_audioset/datafiles_ok/chooosed_human_sounds.csv"
     test_dataset=AudiosetDataset(test_json_path,label_num)
 
     """# Train sampler
@@ -167,11 +165,21 @@ def train(args):
         indexes_hdf5_path=eval_test_indexes_hdf5_path, batch_size=batch_size)"""
 
     # Data loader
-    train_loader = torch.utils.data.DataLoader(dataset=train_dataset,batch_size=batch_size, 
+    if args.sampler:
+        n_train = len(train_dataset)
+        indices = random.sample(list(range(n_train)),100)
+        train_sampler = torch.utils.data.sampler.SubsetRandomSampler(indices)
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, 
+            shuffle=False, num_workers=num_workers, collate_fn=collate_fn, pin_memory=True, sampler=train_sampler)
+        n_val = len(val_dataset)
+        indices = random.sample(list(range(n_val)),100)
+        val_sampler = torch.utils.data.sampler.SubsetRandomSampler(indices)
+        eval_bal_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, 
+            shuffle=False, num_workers=num_workers, collate_fn=collate_fn, pin_memory=True, sampler=val_sampler)
+    else:
+        train_loader = torch.utils.data.DataLoader(dataset=train_dataset,batch_size=batch_size, 
         num_workers=num_workers, pin_memory=True, collate_fn=collate_fn)
-    
-    eval_bal_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True,collate_fn=collate_fn)
-
+        eval_bal_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True,collate_fn=collate_fn)
     eval_test_loader = torch.utils.data.DataLoader(dataset=test_dataset,num_workers=num_workers, pin_memory=True,collate_fn=collate_fn)
 
     """if 'mixup' in augmentation:
@@ -210,7 +218,7 @@ def train(args):
     
     # Parallel
     print('GPU number: {}'.format(torch.cuda.device_count()))
-    model = torch.nn.DataParallel(model)
+    #model = torch.nn.DataParallel(model)
 
     if 'cuda' in str(device):
         model.cuda()
@@ -231,17 +239,22 @@ def train(args):
                 (ifexist) 'mixup_lambda': (batch_size * 2,)}
             """
             # Evaluate
-            if (iteration % 1000 == 0 and iteration > resume_iteration):
+            if (iteration % 10 == 0 and iteration > resume_iteration):
                 train_fin_time = time.time()
-
                 bal_statistics = evaluator.evaluate(eval_bal_loader)
                 test_statistics = evaluator.evaluate(eval_test_loader)
                                 
-                logging.info('Validate bal mAP: {:.3f}'.format(
-                    np.mean(bal_statistics['average_precision'])))
+                """logging.info("iteration: {}".format(iteration),'Validate bal mAP: {:.3f}'.format(np.mean(bal_statistics['average_precision'])), 
+                    'Validate bal F1_score: {:.3f}'.format(np.mean(bal_statistics['F1_score'])), 
+                    'Validate bal roc_auc: {:.3f}'.format(np.mean(bal_statistics['roc_auc'])),  """
+                print('\n Validate bal acc_score: {:.3f}'.format(np.mean(bal_statistics['acc_score'])),  'Validate bal recall_score: {:.3f}'.format(np.mean(bal_statistics['recall_score'])))
 
-                logging.info('Validate test mAP: {:.3f}'.format(
-                    np.mean(test_statistics['average_precision'])))
+                """logging.info('Validate test mAP: {:.3f}'.format(
+                    np.mean(test_statistics['average_precision'])),'Validate test F1_score: {:.3f}'.format(np.mean(test_statistics['F1_score']))
+                    ,'Validate test roc_auc: {:.3f}'.format(np.mean(test_statistics['roc_auc'])),"""
+                print('\n Validate test acc_score: {:.3f}'.format(np.mean(test_statistics['acc_score']), 'Validate test recall_score: {:.3f}'.format(np.mean(test_statistics['recall_score']))))    
+
+                train_bgn_time = time.time()
 
                 statistics_container.append(iteration, bal_statistics, data_type='bal')
                 statistics_container.append(iteration, test_statistics, data_type='test')
@@ -249,7 +262,6 @@ def train(args):
 
                 train_time = train_fin_time - train_bgn_time
                 validate_time = time.time() - train_fin_time
-
                 """logging.info(
                     'iteration: {}, train time: {:.3f} s, validate time: {:.3f} s'
                         ''.format(iteration, train_time, validate_time))"""
@@ -259,7 +271,7 @@ def train(args):
                 train_bgn_time = time.time()
             
             # Save model
-            if iteration % 100000 == 0:
+            """if iteration % 100000 == 0:
                 checkpoint = {
                     'iteration': iteration, 
                     'model': model.module.state_dict(), 
@@ -270,7 +282,7 @@ def train(args):
                     checkpoints_dir, '{}_iterations.pth'.format(iteration))
                     
                 torch.save(checkpoint, checkpoint_path)
-                #logging.info('Model saved to {}'.format(checkpoint_path))
+                #logging.info('Model saved to {}'.format(checkpoint_path))"""
             
             # Mixup lambda
             """if 'mixup' in augmentation:
@@ -283,9 +295,8 @@ def train(args):
             
             # Forward
             model.train()
-
             if 'mixup' in augmentation:
-                batch_output_dict = model(batch_data_dict['waveform'], 
+                batch_output_dict = model(batch_data_dict['waveform'].to(device,non_blocking=True), 
                     batch_data_dict['mixup_lambda'])
                 """{'clipwise_output': (batch_size, classes_num), ...}"""
 
@@ -293,11 +304,11 @@ def train(args):
                     batch_data_dict['mixup_lambda'])}
                 """{'target': (batch_size, classes_num)}"""
             else:
-                batch_output_dict = model(batch_data_dict['waveform'], None)
+                batch_output_dict = model(batch_data_dict['waveform'].to(device,non_blocking=True), None)
                 """{'clipwise_output': (batch_size, classes_num), ...}"""
 
-                batch_target_dict = {'target': batch_data_dict['target'].to(device)}
-                """{'target': (batch_size, classes_num)}"""
+                batch_target_dict = {'target': batch_data_dict['target'].to(device,non_blocking=True)}
+                """{'target': (batch_size classes_num)}"""
 
             # Loss
             loss = loss_func(batch_output_dict, batch_target_dict)
@@ -319,7 +330,7 @@ def train(args):
         if iteration == early_stop:
             break
         iteration += 1
-        print(iteration)
+
         
 
 if __name__ == '__main__':
@@ -340,10 +351,12 @@ if __name__ == '__main__':
     parser_train.add_argument('--augmentation', type=str, default='mixup', choices=['none', 'mixup'])
     parser_train.add_argument('--n_epoches', type=int, default=100)
     parser_train.add_argument('--batch_size', type=int, default=32)
+    parser_train.add_argument('--num_workers',type=int,default=16)
     parser_train.add_argument('--learning_rate', type=float, default=1e-3)
     parser_train.add_argument('--resume_iteration', type=int, default=0)
     parser_train.add_argument('--early_stop', type=int, default=1000000)
-    parser_train.add_argument('--cuda', action='store_true', default=False)
+    parser_train.add_argument('--cuda', action='store_true')
+    parser_train.add_argument('--sampler', action='store_true')
     parser_train.add_argument('--label_num',type=int,default=4)
     
     args = parser.parse_args()

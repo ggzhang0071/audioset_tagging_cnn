@@ -20,7 +20,6 @@ def load_statistics(statistics_path):
     bal_map = np.mean(bal_map, axis=-1)
     test_map = np.array([statistics['average_precision'] for statistics in statistics_dict['test']])    # (N, classes_num)
     test_map = np.mean(test_map, axis=-1)
-
     return bal_map, test_map
 
 
