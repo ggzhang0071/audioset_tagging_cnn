@@ -121,7 +121,7 @@ def collect_data_from_ef(test_wav_dir,original_json_path,save_json_path,max_labe
                     type1=row[1].split("_")[0]
                     assert type1 in ["male", "female", "baby", "child"]
                     if label_counter[type1]<max_label_num:
-                        print("label_counter", label_counter)
+                        #print("label_counter", label_counter)
                         choosed_wav_info.append({"wav":wav_file,"labels":label_map[type1],"display_name":type1.capitalize()})
                         label_counter[type1]+=1
     # save the choosed files
@@ -288,8 +288,10 @@ if __name__=="__main__":
     elif test_dataset=="ef_audio":
         test_wav_dir="/git/datasets/audio_ef_wav/shujutang_wav12"
         original_json_path="/git/datasets/audio_ef_wav/shujutang_wav12_list_txt"
-        save_test_json="/git/datasets/audio_ef_wav/chooosed_human_sounds.json"
+        save_test_json="/git/datasets/audio_ef_wav/chooosed_test_human_sounds.json"
         max_label_num=4
+        collect_data_from_ef(test_wav_dir,original_json_path,save_test_json,max_label_num)  
+
         #compute_mean_std(args.test_wav_dir)
         if args.test_split:
             split_data(save_dir,save_test_json,k_fold,split_ratio,test_dataset)

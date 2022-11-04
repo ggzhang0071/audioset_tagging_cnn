@@ -126,7 +126,8 @@ def plot(args):
             'loss_type={}'.format(loss_type), 'balanced={}'.format(balanced), 
             'augmentation={}'.format(augmentation), 'batch_size={}'.format(batch_size), 
             'statistics.pkl')
-
+        if not os.path.exists(os.path.dirname(statistics_path)):
+            os.makedirs(os.path.dirname(statistics_path))
         statistics_dict = cPickle.load(open(statistics_path, 'rb'))
 
         bal_map = np.array([statistics['average_precision'] for statistics in statistics_dict['bal']])    # (N, classes_num)

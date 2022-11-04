@@ -21,7 +21,6 @@ def collate_fn(list_data_dict):
           {'audio_name': (batch_size,), 'waveform': (batch_size, clip_samples), ...}
     """
     np_data_dict ={}
-
     if not list_data_dict==[None]:    
         for key in list_data_dict[0].keys():
             tmp=np.array([data_dict[key] for data_dict in list_data_dict])
@@ -46,7 +45,6 @@ class AudiosetDataset(Dataset):
             data_json = json.load(fp)
         self.data = data_json['data']
         
-    
     def __getitem__(self, index):
         """
         param index: index of the audio file
@@ -69,8 +67,8 @@ class AudiosetDataset(Dataset):
             label_indices[datum['labels']]=1
             float_label=label_indices.astype(np.float32)
             #label_indices=torch.FloatTensor(label_indices)
-            output_dict={"audio_name":datum['wav'],"waveform":waveform1, "target":float_label, "mixup_lambda":0}
-            return output_dict
+            #output_dict={"audio_name":datum['wav'],"waveform":waveform1, "target":float_label, "mixup_lambda":0}
+            return  waveform1, float_label 
             
     def __len__(self):
         return len(self.data)

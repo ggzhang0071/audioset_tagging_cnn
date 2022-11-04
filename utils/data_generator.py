@@ -3,9 +3,7 @@ import h5py
 import csv
 import time
 import logging
-
 from utilities import int16_to_float32
-
 
 def read_black_list(black_list_csv):
     """Read audio names from black list. 

@@ -8,6 +8,7 @@ import time
 import logging
 import h5py
 import librosa
+import json
 
 from utilities import (create_folder, get_filename, create_logging, 
     float32_to_int16, pad_or_truncate, read_metadata)
@@ -152,36 +153,40 @@ def pack_waveforms_to_hdf5(args):
     logging.info('Write logs to {}'.format(logs_dir))
     
     # Read csv file
-    meta_dict = read_metadata(csv_path, classes_num, id_to_ix)
+    with open(csv_path,"r") as f:
+        train_data = json.load(f)
+        meta_dict=train_data['data']
 
-    if mini_data:
+    #meta_dict = read_metadata(csv_path, classes_num, id_to_ix)
+
+    """if mini_data:
         mini_num = 10
         for key in meta_dict.keys():
-            meta_dict[key] = meta_dict[key][0 : mini_num]
+            meta_dict[key] = meta_dict[key][0 : mini_num]"""
 
-    audios_num = len(meta_dict['audio_name'])
+    audios_num = len(meta_dict)
 
     # Pack waveform to hdf5
     total_time = time.time()
-
+    if os.path.exists(waveforms_hdf5_path):
+        os.remove(waveforms_hdf5_path)
     with h5py.File(waveforms_hdf5_path, 'w') as hf:
         hf.create_dataset('audio_name', shape=((audios_num,)), dtype='S20')
         hf.create_dataset('waveform', shape=((audios_num, clip_samples)), dtype=np.int16)
-        hf.create_dataset('target', shape=((audios_num, classes_num)), dtype=np.bool)
+        hf.create_dataset('target', shape=((audios_num, classes_num)), dtype=bool)
         hf.attrs.create('sample_rate', data=sample_rate, dtype=np.int32)
-
         # Pack waveform & target of several audio clips to a single hdf5 file
-        for n in range(audios_num):
-            audio_path = os.path.join(audios_dir, meta_dict['audio_name'][n])
+        for n, wav_label in enumerate(meta_dict):
+            audio_path=wav_label["wav"]
+            #audio_path = os.path.join(audios_dir, meta_dict['audio_name'][n])
 
             if os.path.isfile(audio_path):
-                logging.info('{} {}'.format(n, audio_path))
+                #logging.info('{} {}'.format(n, audio_path))
                 (audio, _) = librosa.core.load(audio_path, sr=sample_rate, mono=True)
                 audio = pad_or_truncate(audio, clip_samples)
-
-                hf['audio_name'][n] = meta_dict['audio_name'][n].encode()
+                hf['audio_name'][n] = audio_path.encode()
                 hf['waveform'][n] = float32_to_int16(audio)
-                hf['target'][n] = meta_dict['target'][n]
+                hf['target'][n] = wav_label['labels']
             else:
                 logging.info('{} File does not exist! {}'.format(n, audio_path))
 

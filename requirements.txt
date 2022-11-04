@@ -9,4 +9,4 @@ h5py
 
 # also need install libsndfile
 # apt update
-apt -y install libsndfile1
+#apt -y install libsndfile1

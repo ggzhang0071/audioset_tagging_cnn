@@ -10,12 +10,13 @@ import torch.nn as nn
 import torch.nn.functional as F  
 import torch.optim as optim
 import torch.utils.data
+import h5py
 #from  torch.cuda.amp import autocast, GradScaler
 
 from torch.utils.tensorboard import SummaryWriter
 writer=SummaryWriter()
 sys.path.insert(1, os.path.join(sys.path[0], '../utils'))
-#from utilities import (create_folder, get_filename, create_logging, Mixup, StatisticsContainer)
+from utilities import (create_folder, get_filename, create_logging, Mixup, StatisticsContainer)
 from models import (Cnn14, Cnn14_no_specaug, Cnn14_no_dropout, 
     Cnn6, Cnn10, ResNet22, ResNet38, ResNet54, Cnn14_emb512, Cnn14_emb128, 
     Cnn14_emb32, MobileNetV1, MobileNetV2, LeeNet11, LeeNet24, DaiNet19, 
@@ -24,10 +25,12 @@ from models import (Cnn14, Cnn14_no_specaug, Cnn14_no_dropout,
     Cnn14_mixup_time_domain, Cnn14_DecisionLevelMax, Cnn14_DecisionLevelAtt)
 from pytorch_utils import (move_data_to_device, count_parameters, count_flops, 
     do_mixup)
-#from data_generator import (AudioSetDataset, TrainSampler, BalancedTrainSampler, AlternateTrainSampler, EvaluateSampler, collate_fn)
+from data_generator import (AudioSetDataset, TrainSampler, BalancedTrainSampler, AlternateTrainSampler, EvaluateSampler, collate_fn)
 #from  data_generator import collate_fn
 sys.path.append("/git/audioset_tagging_cnn")
-from utils import AudiosetDataset, collate_fn
+#from utils import AudiosetDataset, collate_fn
+from data_generator import (AudioSetDataset, TrainSampler, BalancedTrainSampler, 
+    AlternateTrainSampler, EvaluateSampler, collate_fn)
 from evaluate import Evaluator
 import config
 from losses import get_loss_func
@@ -75,23 +78,20 @@ def train(args):
     resume_iteration = args.resume_iteration
     early_stop = args.early_stop
     device = torch.device('cuda') if args.cuda and torch.cuda.is_available() else torch.device('cpu')
-    #filename = args.filename
+    filename = args.filename
     label_num=args.label_num
     clip_samples = config.clip_samples
     classes_num = config.classes_num
     loss_func = get_loss_func(loss_type)
 
-    """# Paths
+    # Paths
     black_list_csv = None
     
-    train_indexes_hdf5_path = os.path.join(workspace, 'hdf5s', 'indexes', 
-        '{}.h5'.format(data_type))
+    train_indexes_hdf5_path = os.path.join(workspace, 'hdf5s', 'indexes', 'balanced_train.h5')
 
-    eval_bal_indexes_hdf5_path = os.path.join(workspace, 
-        'hdf5s', 'indexes', 'balanced_train.h5')
+    eval_bal_indexes_hdf5_path = os.path.join(workspace,  'hdf5s', 'indexes', 'eval.h5')
 
-    eval_test_indexes_hdf5_path = os.path.join(workspace, 'hdf5s', 'indexes', 
-        'eval.h5')
+    eval_test_indexes_hdf5_path = os.path.join(workspace, 'hdf5s', 'indexes',  'test.h5')
 
     checkpoints_dir = os.path.join(workspace, 'checkpoints', filename, 
         'sample_rate={},window_size={},hop_size={},mel_bins={},fmin={},fmax={}'.format(
@@ -118,7 +118,7 @@ def train(args):
         'augmentation={}'.format(augmentation), 'batch_size={}'.format(batch_size))
 
     create_logging(logs_dir, filemode='w')
-    #logging.info(args)"""
+    #logging.info(args)
     
     if 'cuda' in str(device):
         logging.info('Using GPU.')
@@ -140,14 +140,21 @@ def train(args):
     
     # Dataset will be used by DataLoader later. Dataset takes a meta as input 
     # and return a waveform and a target.
-    train_json_path='/git/datasets/from_audioset/datafiles_ok/part_audioset_train_data_1.json'
+    """train_json_path='/git/datasets/from_audioset/datafiles_ok/part_audioset_train_data_1.json'
     train_dataset=AudiosetDataset(train_json_path,label_num)
     val_json_path='/git/datasets/from_audioset/datafiles_ok/part_audioset_eval_data_1.json'
     val_dataset=AudiosetDataset(val_json_path,label_num)
     test_json_path="/git/datasets/from_audioset/datafiles_ok/chooosed_human_sounds.csv"
-    test_dataset=AudiosetDataset(test_json_path,label_num)
+    test_dataset=AudiosetDataset(test_json_path,label_num)"""
 
-    """# Train sampler
+
+    """save_train_h5_path='/git/datasets/from_audioset/datafiles_ok/train_human_sound_dataset.h5'
+    save_eval_h5_path='/git/datasets/from_audioset/datafiles_ok/eval_human_sound_dataset.h5'"""
+
+    save_train_h5_path="/git/audioset_tagging_cnn/workspaces/audioset_tagging/hdf5s/waveforms/eval.h5"
+    save_eval_h5_path="/git/audioset_tagging_cnn/workspaces/audioset_tagging/hdf5s/waveforms/test.h5"
+
+    # Train sampler
     if balanced == 'none':
         Sampler = TrainSampler
     elif balanced == 'balanced':
@@ -156,16 +163,17 @@ def train(args):
         Sampler = AlternateTrainSampler
      
     train_sampler = Sampler(
-        indexes_hdf5_path=train_indexes_hdf5_path, 
+        indexes_hdf5_path=train_indexes_hdf5_path,
         batch_size=batch_size * 2 if 'mixup' in augmentation else batch_size,
         black_list_csv=black_list_csv)
     
     # Evaluate sampler
-    eval_bal_sampler = EvaluateSampler(
-        indexes_hdf5_path=eval_bal_indexes_hdf5_path, batch_size=batch_size)
 
-    eval_test_sampler = EvaluateSampler(
-        indexes_hdf5_path=eval_test_indexes_hdf5_path, batch_size=batch_size)"""
+    eval_bal_sampler = EvaluateSampler(indexes_hdf5_path=eval_bal_indexes_hdf5_path, batch_size=batch_size)
+
+    eval_test_sampler = EvaluateSampler(indexes_hdf5_path=eval_test_indexes_hdf5_path, batch_size=batch_size)    
+
+    dataset = AudioSetDataset(sample_rate=sample_rate)
 
     # Data loader
     if args.sampler:
@@ -173,17 +181,28 @@ def train(args):
         indices = random.sample(list(range(n_train)),100)
         train_sampler = torch.utils.data.sampler.SubsetRandomSampler(indices)
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, 
-            shuffle=False, num_workers=num_workers, collate_fn=collate_fn, pin_memory=True, sampler=train_sampler)
+            shuffle=False, num_workers=num_workers, pin_memory=True, sampler=train_sampler)
         n_val = len(val_dataset)
         indices = random.sample(list(range(n_val)),100)
         val_sampler = torch.utils.data.sampler.SubsetRandomSampler(indices)
         eval_bal_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, 
-            shuffle=False, num_workers=num_workers, collate_fn=collate_fn, pin_memory=True, sampler=val_sampler)
+            shuffle=False, num_workers=num_workers, pin_memory=True, sampler=val_sampler)
     else:
-        train_loader = torch.utils.data.DataLoader(dataset=train_dataset,batch_size=batch_size, 
-        num_workers=num_workers, pin_memory=True, collate_fn=collate_fn)
-        eval_bal_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True,collate_fn=collate_fn)
-    eval_test_loader = torch.utils.data.DataLoader(dataset=test_dataset,num_workers=num_workers, pin_memory=True,collate_fn=collate_fn)
+        train_loader =   torch.utils.data.DataLoader(dataset=dataset, batch_sampler=train_sampler, num_workers=num_workers, pin_memory=True)
+        eval_bal_loader = torch.utils.data.DataLoader(dataset=dataset,  batch_sampler=eval_bal_sampler, num_workers=num_workers, pin_memory=True)
+    eval_test_loader = torch.utils.data.DataLoader(dataset=dataset, batch_sampler=eval_test_sampler, num_workers=num_workers, pin_memory=True)
+
+    train_loader = torch.utils.data.DataLoader(dataset=dataset, 
+        batch_sampler=train_sampler, collate_fn=collate_fn, 
+        num_workers=num_workers, pin_memory=True)
+    
+    eval_bal_loader = torch.utils.data.DataLoader(dataset=dataset, 
+        batch_sampler=eval_bal_sampler, collate_fn=collate_fn, 
+        num_workers=num_workers, pin_memory=True)
+
+    eval_test_loader = torch.utils.data.DataLoader(dataset=dataset, 
+        batch_sampler=eval_test_sampler, collate_fn=collate_fn, 
+        num_workers=num_workers, pin_memory=True)
 
     """if 'mixup' in augmentation:
         mixup_augmenter = Mixup(mixup_alpha=1.)"""
@@ -214,8 +233,8 @@ def train(args):
         checkpoint = torch.load(resume_checkpoint_path)
         model.load_state_dict(checkpoint['model'])
         train_sampler.load_state_dict(checkpoint['sampler'])
-        statistics_container.load_state_dict(resume_iteration)
-        iteration = checkpoint['iteration']
+        #statistics_container.load_state_dict(resume_iteration)
+        #iteration = checkpoint['iteration']
     else:
         iteration = 0
     
@@ -238,7 +257,7 @@ def train(args):
             if epoch==iter_to_capture:
                 profiler.start()
                 
-            for batch_data_dict in train_loader:
+            for batch_data_dict in eval_bal_loader:
                 """ batch_data_dict: {
                     'audio_name': (batch_size [*2 if mixup],), 
                     'waveform': (batch_size [*2 if mixup], clip_samples), 
@@ -254,18 +273,18 @@ def train(args):
                     """logging.info("iteration: {}".format(iteration),'Validate bal mAP: {:.3f}'.format(np.mean(bal_statistics['average_precision'])), 
                         'Validate bal F1_score: {:.3f}'.format(np.mean(bal_statistics['F1_score'])), 
                         'Validate bal roc_auc: {:.3f}'.format(np.mean(bal_statistics['roc_auc'])),  """
-                    print("\n iteration: {},".format(iteration),'Validate bal F1_score: {:.3f},'.format(np.mean(bal_statistics['F1_score'])), '\n Validate bal acc_score: {:.3f},'.format(np.mean(bal_statistics['acc_score'])),  'Validate bal recall_score: {:.3f}.'.format(np.mean(bal_statistics['recall_score'])))
+                    print("\n epoch: {},".format(epoch),'Validate bal F1_score: {:.3f},'.format(np.mean(bal_statistics['F1_score'])), '\n Validate bal acc_score: {:.3f},'.format(np.mean(bal_statistics['acc_score'])),  'Validate bal recall_score: {:.3f}.'.format(np.mean(bal_statistics['recall_score'])))
 
                     """logging.info('Validate test mAP: {:.3f}'.format(
                         np.mean(test_statistics['average_precision'])),'Validate test F1_score: {:.3f}'.format(np.mean(test_statistics['F1_score']))
                         ,'Validate test roc_auc: {:.3f}'.format(np.mean(test_statistics['roc_auc'])),"""
-                    print("\n iteration: {}".format(iteration),'Validate test F1_score: {:.3f},'.format(np.mean(test_statistics['F1_score'])),'Validate test acc_score: {:.3f},'.format(np.mean(test_statistics['acc_score']), 'Validate test recall_score: {:.3f}.'.format(np.mean(test_statistics['recall_score']))))    
+                    print("\n epoch: {}".format(epoch),'Validate test F1_score: {:.3f},'.format(np.mean(test_statistics['F1_score'])),'Validate test acc_score: {:.3f},'.format(np.mean(test_statistics['acc_score']), 'Validate test recall_score: {:.3f}.'.format(np.mean(test_statistics['recall_score']))))    
 
                     train_bgn_time = time.time()
 
-                    statistics_container.append(iteration, bal_statistics, data_type='bal')
+                    """statistics_container.append(iteration, bal_statistics, data_type='bal')
                     statistics_container.append(iteration, test_statistics, data_type='test')
-                    statistics_container.dump()
+                    statistics_container.dump()"""
 
                     train_time = train_fin_time - train_bgn_time
                     validate_time = time.time() - train_fin_time
@@ -303,18 +322,19 @@ def train(args):
                 # Forward
                 model.train()
                 if 'mixup' in augmentation:
-                    batch_output_dict = model(batch_data_dict['waveform'].to(device,non_blocking=True), 
+                    batch_output_dict = model(batch_data_dict[1].to(device,non_blocking=True), 
                         batch_data_dict['mixup_lambda'])
                     """{'clipwise_output': (batch_size, classes_num), ...}"""
 
-                    batch_target_dict = {'target': do_mixup(batch_data_dict['target'], 
+                    batch_target_dict = {'target': do_mixup(batch_data_dict[2], 
                         batch_data_dict['mixup_lambda'])}
                     """{'target': (batch_size, classes_num)}"""
                 else:
-                    batch_output_dict = model(batch_data_dict['waveform'].to(device,non_blocking=True), None)
+                    batch_output_dict = model(torch.from_numpy(batch_data_dict['waveform']).to(device,non_blocking=True), None)
+                    #batch_output_dict = model(batch_data_dict[0].to(device,non_blocking=True), None)
                     """{'clipwise_output': (batch_size, classes_num), ...}"""
 
-                    batch_target_dict = {'target': batch_data_dict['target'].to(device,non_blocking=True)}
+                    batch_target_dict = {'target': torch.from_numpy(batch_data_dict['target']).to(device,non_blocking=True)}
                     """{'target': (batch_size classes_num)}"""
 
                 # Loss
@@ -322,7 +342,7 @@ def train(args):
 
                 # Backward
                 loss.backward()
-                print(loss.cpu().detach().numpy())
+                #print(loss.item())
                 writer.add_scalar("train/loss", loss.item(), epoch)
                 
                 optimizer.step()
@@ -339,8 +359,6 @@ def train(args):
             if iteration == early_stop:
                 break
             iteration += 1
-
-        
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Example of parser. ')
@@ -369,7 +387,7 @@ if __name__ == '__main__':
     parser_train.add_argument('--label_num',type=int,default=4)
     
     args = parser.parse_args()
-    #args.filename = get_filename(__file__)
+    args.filename = get_filename(__file__)
 
     if args.mode == 'train':
         train(args)
