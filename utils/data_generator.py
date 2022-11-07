@@ -4,6 +4,8 @@ import csv
 import time
 import logging
 from utilities import int16_to_float32
+import os
+import torch
 
 def read_black_list(black_list_csv):
     """Read audio names from black list. 
@@ -419,14 +421,15 @@ def collate_fn(list_data_dict):
     return np_data_dict
 
 if __name__=="__main__":
-    norm_stats = {'audioset':[-4.2677393, 4.5689974], 'esc50':[-6.6268077, 5.358466]}
-    target_length = {'audioset':1024, 'esc50':512}
-    test_audio_conf={'num_mel_bins': 128, 'target_length': target_length["audioset"], 'freqm': 0, \
-         'timem': 0, 'mixup': 0, 'dataset': "audioset", 'mode':'train', 'mean':norm_stats["audioset"][0], \
-             'std':norm_stats["audioset"][1], 'noise':False}
-    train_json_path='/git/datasets/from_audioset/datafiles/part_audioset_train_data_1.json'
-    train_dataset=AudiosetDataset(train_json_path,types=config.classification_types,audio_conf=test_audio_conf)
-    for i in  train_dataset:
-        print(i)
+    dataset=AudioSetDataset(sample_rate=16000)
+    indexes_hdf5_dir="/git/audioset_tagging_cnn/workspaces/audioset_tagging/hdf5s/indexes"
+    train_bal_indexes_hdf5_path=os.path.join(indexes_hdf5_dir,'balanced_train.h5')
+    with h5py.File(train_bal_indexes_hdf5_path, 'r') as hf: 
+        hf['target'][4]
+    black_list_csv=None
+    train_sampler=BalancedTrainSampler(indexes_hdf5_path=train_bal_indexes_hdf5_path, batch_size=1024, black_list_csv=black_list_csv)
+    train_loader = torch.utils.data.DataLoader(dataset=dataset, batch_sampler=train_sampler, collate_fn=collate_fn,  num_workers=8, pin_memory=True)
+    for data in train_loader:
+        print(data["audio_name"].shape,data["waveform"].shape,data["target"][0])
 
 

@@ -48,7 +48,6 @@ def compute_mean_std(wav_dir):
     #The  ef_audio dataset mean  is -2.0259456505300477e-05, std is 0.019023671746253967
 
 
-
 def collect_data_from_audioset(csv_dir,choosed_types,save_test_json,multi_label):
     #Find the wav file according the wav file, since there are some csv file are not consistent with the wav file
     wav_label_list=[]

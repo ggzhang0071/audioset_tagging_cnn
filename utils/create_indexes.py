@@ -29,7 +29,7 @@ def create_indexes(args):
     with h5py.File(waveforms_hdf5_path, 'r') as hr:
         with h5py.File(indexes_hdf5_path, 'w') as hw:
             audios_num = len(hr['audio_name'])
-            hw.create_dataset('audio_name', data=hr['audio_name'][:], dtype='S20')
+            hw.create_dataset('audio_name', data=hr['audio_name'][:], dtype='S100')
             hw.create_dataset('target', data=hr['target'][:], dtype=bool)
             hw.create_dataset('hdf5_path', data=[waveforms_hdf5_path.encode()] * audios_num, dtype='S200')
             hw.create_dataset('index_in_hdf5', data=np.arange(audios_num), dtype=np.int32)
@@ -61,7 +61,7 @@ def combine_full_indexes(args):
             name='audio_name', 
             shape=(0,), 
             maxshape=(None,), 
-            dtype='S20')
+            dtype='S100')
         
         full_hf.create_dataset(
             name='target', 

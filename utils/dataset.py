@@ -15,10 +15,10 @@ from utilities import (create_folder, get_filename, create_logging,
 import config
 
 
+
 def split_unbalanced_csv_to_partial_csvs(args):
     """Split unbalanced csv to part csvs. Each part csv contains up to 50000 ids. 
     """
-    
     unbalanced_csv_path = args.unbalanced_csv
     unbalanced_partial_csvs_dir = args.unbalanced_partial_csvs_dir
     
@@ -171,11 +171,13 @@ def pack_waveforms_to_hdf5(args):
     if os.path.exists(waveforms_hdf5_path):
         os.remove(waveforms_hdf5_path)
     with h5py.File(waveforms_hdf5_path, 'w') as hf:
-        hf.create_dataset('audio_name', shape=((audios_num,)), dtype='S20')
+        hf.create_dataset('audio_name', shape=((audios_num,)), dtype='S100')
         hf.create_dataset('waveform', shape=((audios_num, clip_samples)), dtype=np.int16)
         hf.create_dataset('target', shape=((audios_num, classes_num)), dtype=bool)
         hf.attrs.create('sample_rate', data=sample_rate, dtype=np.int32)
         # Pack waveform & target of several audio clips to a single hdf5 file
+        label_indices=np.zeros((classes_num),dtype=bool)
+        
         for n, wav_label in enumerate(meta_dict):
             audio_path=wav_label["wav"]
             #audio_path = os.path.join(audios_dir, meta_dict['audio_name'][n])
@@ -186,7 +188,9 @@ def pack_waveforms_to_hdf5(args):
                 audio = pad_or_truncate(audio, clip_samples)
                 hf['audio_name'][n] = audio_path.encode()
                 hf['waveform'][n] = float32_to_int16(audio)
-                hf['target'][n] = wav_label['labels']
+                tmp=label_indices.copy()
+                tmp[wav_label['labels']]=True
+                hf['target'][n] = tmp
             else:
                 logging.info('{} File does not exist! {}'.format(n, audio_path))
 

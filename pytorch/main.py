@@ -176,22 +176,6 @@ def train(args):
     dataset = AudioSetDataset(sample_rate=sample_rate)
 
     # Data loader
-    if args.sampler:
-        n_train = len(train_dataset)
-        indices = random.sample(list(range(n_train)),100)
-        train_sampler = torch.utils.data.sampler.SubsetRandomSampler(indices)
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, 
-            shuffle=False, num_workers=num_workers, pin_memory=True, sampler=train_sampler)
-        n_val = len(val_dataset)
-        indices = random.sample(list(range(n_val)),100)
-        val_sampler = torch.utils.data.sampler.SubsetRandomSampler(indices)
-        eval_bal_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, 
-            shuffle=False, num_workers=num_workers, pin_memory=True, sampler=val_sampler)
-    else:
-        train_loader =   torch.utils.data.DataLoader(dataset=dataset, batch_sampler=train_sampler, num_workers=num_workers, pin_memory=True)
-        eval_bal_loader = torch.utils.data.DataLoader(dataset=dataset,  batch_sampler=eval_bal_sampler, num_workers=num_workers, pin_memory=True)
-    eval_test_loader = torch.utils.data.DataLoader(dataset=dataset, batch_sampler=eval_test_sampler, num_workers=num_workers, pin_memory=True)
-
     train_loader = torch.utils.data.DataLoader(dataset=dataset, 
         batch_sampler=train_sampler, collate_fn=collate_fn, 
         num_workers=num_workers, pin_memory=True)
@@ -214,8 +198,7 @@ def train(args):
     statistics_container = StatisticsContainer(statistics_path)"""
     
     # Optimizer
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate, 
-        betas=(0.9, 0.999), eps=1e-08, weight_decay=0., amsgrad=True)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0., amsgrad=True)
 
     train_bgn_time = time.time()
     
@@ -244,6 +227,7 @@ def train(args):
 
     if 'cuda' in str(device):
         model.to(device)
+        
     
     time1 = time.time()
     """ if not isinstance(model,nn.DataParallel):
