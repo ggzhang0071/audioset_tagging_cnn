@@ -159,7 +159,7 @@ def pack_waveforms_to_hdf5(args):
 
     #meta_dict = read_metadata(csv_path, classes_num, id_to_ix)
 
-    """if mini_data:
+    """if mini_data:n
         mini_num = 10
         for key in meta_dict.keys():
             meta_dict[key] = meta_dict[key][0 : mini_num]"""

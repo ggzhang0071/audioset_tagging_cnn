@@ -3,7 +3,7 @@ import csv
 
 sample_rate = 16000
 clip_samples = sample_rate * 10     # Audio clips are 10-second
-classification_types=["Baby", "Child", "Female", "Male"]
+classification_types=[ "Child", "Female", "Male"]
 #classification_types=["Man","Woman","Child","Baby"]
 
 
@@ -21,7 +21,7 @@ for i1 in range(1, len(lines)):
     labels.append(label)
 
 classes_num = len(labels)
-classes_num=4
+classes_num=len(classification_types)
 
 lb_to_ix = {label : i for i, label in enumerate(labels)}
 ix_to_lb = {i : label for i, label in enumerate(labels)}
